@@ -1,5 +1,6 @@
 # Credentials -- never commit
 .env
+.cursorrules
 credentials.json
 service_account.json
 
