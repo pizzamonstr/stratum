@@ -1,0 +1,14 @@
+# Core pipeline dependencies
+faker>=24.0.0
+pyyaml>=6.0
+google-cloud-bigquery>=3.17.0
+pandas>=2.2.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# LLM API clients (Checkpoint B+)
+anthropic>=0.25.0
+openai>=1.0.0
+
+# dbt -- install separately:
+# pip install dbt-bigquery

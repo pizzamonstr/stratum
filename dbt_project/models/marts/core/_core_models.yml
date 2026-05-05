@@ -1,0 +1,159 @@
+version: 2
+
+models:
+  - name: mart_orders
+    description: >
+      Order line item spine. One row per line item. The foundation that all
+      downstream mart models join back to. Resolves customer_type (new vs
+      returning), calculates net_revenue via macro, and carries acquisition_channel
+      from the order record. Incrementally updated on ordered_at.
+    columns:
+      - name: line_item_id
+        description: Primary key. One row per order line item.
+        tests: [unique, not_null]
+      - name: order_id
+        description: Shopify order ID. Multiple rows share this for multi-item orders.
+        tests: [not_null]
+      - name: customer_id
+        description: Shopify customer ID. Foreign key to mart_customers.
+        tests: [not_null]
+      - name: ordered_at
+        description: Timestamp when the order was placed.
+        tests: [not_null]
+      - name: financial_status
+        description: Order payment status.
+        tests:
+          - not_null
+          - accepted_values:
+              values: [paid, refunded, partially_refunded]
+      - name: gross_revenue
+        description: Order revenue before discounts, in USD.
+        tests: [not_null]
+      - name: discount_amount
+        description: Discount applied to this order, in USD. Zero if none.
+        tests: [not_null]
+      - name: net_revenue
+        description: >
+          gross_revenue minus discount_amount, in USD. The single agreed
+          revenue definition across all models and dashboards. Calculated
+          via the net_revenue macro in macros/net_revenue.sql.
+        tests: [not_null]
+      - name: acquisition_channel
+        description: Last-touch acquisition channel for this order.
+        tests:
+          - not_null
+          - accepted_values:
+              values: [paid_social, paid_search, organic, email, direct]
+      - name: customer_type
+        description: >
+          'new' if this is the customer's first-ever order; 'returning' for
+          all subsequent orders. Determined by order_rank within the
+          customer_order_ranks CTE.
+        tests:
+          - not_null
+          - accepted_values:
+              values: [new, returning]
+      - name: sku
+        description: Product SKU for this line item.
+        tests: [not_null]
+      - name: product_category
+        description: Product category for this line item.
+        tests:
+          - not_null
+          - accepted_values:
+              values: [hard_goods, consumables, accessories]
+      - name: quantity
+        description: Units ordered for this line item.
+        tests: [not_null]
+      - name: unit_price
+        description: Price per unit at time of order, in USD.
+        tests: [not_null]
+      - name: line_revenue
+        description: quantity × unit_price for this line, in USD.
+        tests: [not_null]
+      - name: customer_email
+        description: Customer email address, joined from stg_shopify__customers.
+      - name: customer_city
+        description: Customer city, joined from stg_shopify__customers.
+      - name: customer_country
+        description: Customer country, joined from stg_shopify__customers.
+      - name: days_since_prior_order
+        description: >
+          Days between this order and the customer's previous order.
+          Null for first orders (customer_type = 'new').
+
+  - name: mart_customers
+    description: >
+      Customer-level lifetime summary. One row per customer. Aggregated from
+      mart_orders with order-level deduplication to prevent revenue inflation
+      across multiple line items per order. Answers: who are our best customers,
+      how often do they buy, and what is their category preference?
+    columns:
+      - name: customer_id
+        description: Primary key.
+        tests: [unique, not_null]
+      - name: customer_email
+        description: Customer email address.
+        tests: [not_null]
+      - name: customer_country
+        description: Customer's shipping country.
+      - name: first_order_at
+        description: Timestamp of the customer's first order.
+        tests: [not_null]
+      - name: most_recent_order_at
+        description: Timestamp of the customer's most recent order.
+        tests: [not_null]
+      - name: total_orders
+        description: Lifetime distinct order count.
+        tests: [not_null]
+      - name: total_revenue
+        description: Lifetime net revenue from this customer, in USD.
+        tests: [not_null]
+      - name: avg_order_value
+        description: total_revenue divided by total_orders, in USD.
+      - name: days_since_last_order
+        description: Days between most_recent_order_at and today.
+      - name: acquisition_channel_first
+        description: The acquisition channel that drove the customer's first order.
+      - name: favourite_category
+        description: Product category with the highest total line_revenue.
+      - name: customer_segment
+        description: >
+          Segment based on lifetime order count.
+          one_time = 1 order. occasional = 2–4 orders. loyal = 5+ orders.
+        tests:
+          - not_null
+          - accepted_values:
+              values: [one_time, occasional, loyal]
+
+  - name: mart_inventory
+    description: >
+      Daily inventory positions per SKU with demand metrics and risk flags.
+      One row per SKU per day. Answers: which SKUs are at risk of stocking out,
+      and how many days of cover does each SKU have today? The low_stock_flag
+      threshold is driven by the low_stock_threshold project variable (default 30).
+    columns:
+      - name: sku
+        description: Product SKU. Composite key with inventory_date.
+        tests: [not_null]
+      - name: inventory_date
+        description: Calendar date for this snapshot.
+        tests: [not_null]
+      - name: inventory_quantity
+        description: Units on hand at end of day.
+        tests: [not_null]
+      - name: was_out_of_stock
+        description: True if inventory hit zero on this day.
+        tests: [not_null]
+      - name: low_stock_flag
+        description: >
+          True if inventory_quantity is below low_stock_threshold (default 30).
+          Threshold is set in dbt_project.yml vars.
+      - name: units_sold_that_day
+        description: Units sold on this date, joined from mart_orders.
+      - name: avg_daily_sales_rate_30d
+        description: Rolling 30-day average units sold per day.
+      - name: days_of_stock_remaining
+        description: >
+          inventory_quantity divided by avg_daily_sales_rate_30d.
+          Null when avg_daily_sales_rate_30d is zero (uses safe_divide).

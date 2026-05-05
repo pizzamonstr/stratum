@@ -1,0 +1,31 @@
+# Credentials -- never commit
+.env
+credentials.json
+service_account.json
+
+# Real data files -- never commit
+data/*.csv
+data/*.parquet
+data/*.json
+data/sample_outputs/*.csv
+!data/sample_outputs/.gitkeep
+
+# dbt generated files
+dbt_project/profiles.yml
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+dbt_project/.user.yml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db

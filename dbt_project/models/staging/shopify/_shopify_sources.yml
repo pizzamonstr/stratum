@@ -1,0 +1,20 @@
+version: 2
+
+sources:
+  - name: shopify
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: raw_shopify
+    description: >
+      Raw Shopify data loaded from synthetic CSVs via load_to_bigquery.py.
+      The transactional spine of the pipeline.
+    tables:
+      - name: shopify_orders
+        description: One row per order. Revenue, channel, and payment status.
+      - name: shopify_customers
+        description: One row per customer account.
+      - name: shopify_order_line_items
+        description: One row per line item within an order.
+      - name: shopify_products
+        description: One row per SKU in the product catalogue.
+      - name: shopify_inventory
+        description: One row per SKU per day. Tracks on-hand quantity.

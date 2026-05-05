@@ -1,0 +1,88 @@
+version: 2
+
+models:
+  - name: stg_shopify__orders
+    description: >
+      Cleaned and typed Shopify orders. Filtered to exclude voided, pending,
+      and test orders. One row per order. Business logic (net_revenue,
+      customer_type) is resolved downstream in mart_orders.
+    columns:
+      - name: order_id
+        description: Shopify order ID. Primary key.
+        tests: [unique, not_null]
+      - name: customer_id
+        description: Foreign key to stg_shopify__customers.
+        tests: [not_null]
+      - name: ordered_at
+        description: Timestamp when the order was created.
+        tests: [not_null]
+      - name: financial_status
+        description: Payment status of the order after filtering.
+        tests:
+          - not_null
+          - accepted_values:
+              values: [paid, refunded, partially_refunded]
+      - name: gross_revenue
+        description: Order revenue before discounts, in USD.
+        tests: [not_null]
+      - name: discount_amount
+        description: Discount applied at order level, in USD. Zero if none.
+        tests: [not_null]
+      - name: acquisition_channel
+        description: Last-touch acquisition channel from the order record.
+        tests:
+          - not_null
+          - accepted_values:
+              values: [paid_social, paid_search, organic, email, direct]
+
+  - name: stg_shopify__customers
+    description: >
+      Cleaned and typed Shopify customer records. One row per customer.
+      Revenue totals here come from the Shopify export and may differ
+      from mart_customers, which derives totals from mart_orders directly.
+    columns:
+      - name: customer_id
+        description: Shopify customer ID. Primary key.
+        tests: [unique, not_null]
+      - name: email
+        description: Customer email address.
+        tests: [unique, not_null]
+      - name: created_at
+        description: Timestamp when the customer account was created.
+        tests: [not_null]
+
+  - name: stg_shopify__order_line_items
+    description: >
+      Cleaned and typed order line items. One row per SKU per order.
+    columns:
+      - name: line_item_id
+        description: Line item ID. Primary key.
+        tests: [unique, not_null]
+      - name: order_id
+        description: Foreign key to stg_shopify__orders.
+        tests: [not_null]
+      - name: sku
+        description: Product SKU for this line item.
+        tests: [not_null]
+      - name: line_revenue
+        description: quantity × unit_price for this line, in USD.
+        tests: [not_null]
+
+  - name: stg_shopify__inventory
+    description: >
+      Daily on-hand inventory quantity per SKU. One row per SKU per day.
+      Business logic (low_stock_flag, days_of_stock_remaining) is added
+      in mart_inventory.
+    columns:
+      - name: sku
+        description: Product SKU. Composite key with inventory_date.
+        tests: [not_null]
+      - name: inventory_date
+        description: Calendar date for this inventory snapshot.
+        tests: [not_null]
+      - name: inventory_quantity
+        description: Units on hand at end of day.
+        tests: [not_null]
+      - name: was_out_of_stock
+        description: True if inventory hit zero on this day.
+        tests: [not_null]

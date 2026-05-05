@@ -1,0 +1,180 @@
+# synthetic_config.yml
+# Controls all behaviour of generate_synthetic_data.py.
+# Edit this file to adjust volume, dates, SKUs, or seasonality.
+# Do not hard-code these values in the script.
+
+# ── date range ─────────────────────────────────────────────────────────────
+date_range:
+  start: "2023-01-01"
+  end:   "2024-12-31"
+
+# ── customer volume ────────────────────────────────────────────────────────
+customers:
+  total: 3000
+  new_pct_year_one: 0.60
+  repeat_purchase_rate: 0.35
+  max_orders_per_customer: 8
+
+# ── SKU catalogue ──────────────────────────────────────────────────────────
+# Three categories: hard goods (considered purchase), consumables, accessories.
+# velocity: high / medium / low -- controls stockout probability.
+skus:
+  - sku: HARD-001
+    title: "Trail Pack Pro 45L"
+    category: hard_goods
+    price: 189.00
+    cost: 62.00
+    velocity: high
+
+  - sku: HARD-002
+    title: "Summit Shelter 2P"
+    category: hard_goods
+    price: 349.00
+    cost: 115.00
+    velocity: medium
+
+  - sku: HARD-003
+    title: "Ridge Runner Poles"
+    category: hard_goods
+    price: 129.00
+    cost: 42.00
+    velocity: medium
+
+  - sku: HARD-004
+    title: "Alpine Headlamp 400"
+    category: hard_goods
+    price: 64.00
+    cost: 21.00
+    velocity: high
+
+  - sku: HARD-005
+    title: "Insulated Flask 1L"
+    category: hard_goods
+    price: 44.00
+    cost: 14.00
+    velocity: high
+
+  - sku: CONS-001
+    title: "All-Day Energy Bar (12-pack)"
+    category: consumables
+    price: 29.00
+    cost: 9.00
+    velocity: high
+
+  - sku: CONS-002
+    title: "Electrolyte Tabs (30ct)"
+    category: consumables
+    price: 19.00
+    cost: 5.50
+    velocity: high
+
+  - sku: CONS-003
+    title: "Trail Mix Variety (8-pack)"
+    category: consumables
+    price: 24.00
+    cost: 7.00
+    velocity: medium
+
+  - sku: CONS-004
+    title: "Sunscreen SPF 50 (3-pack)"
+    category: consumables
+    price: 22.00
+    cost: 6.50
+    velocity: medium
+
+  - sku: CONS-005
+    title: "Blister Block Stick"
+    category: consumables
+    price: 12.00
+    cost: 3.50
+    velocity: low
+
+  - sku: ACCS-001
+    title: "Merino Beanie"
+    category: accessories
+    price: 38.00
+    cost: 12.00
+    velocity: high
+
+  - sku: ACCS-002
+    title: "Packable Rain Cover"
+    category: accessories
+    price: 29.00
+    cost: 9.00
+    velocity: medium
+
+  - sku: ACCS-003
+    title: "Trekking Gaiters"
+    category: accessories
+    price: 49.00
+    cost: 16.00
+    velocity: medium
+
+  - sku: ACCS-004
+    title: "Compression Socks (3pk)"
+    category: accessories
+    price: 32.00
+    cost: 10.00
+    velocity: high
+
+  - sku: ACCS-005
+    title: "Gear Repair Kit"
+    category: accessories
+    price: 18.00
+    cost: 5.50
+    velocity: low
+
+# ── seasonal multipliers ───────────────────────────────────────────────────
+# Applied to daily order volume. 1.0 = baseline.
+# General outdoor pattern: spring/summer peaks, holiday bump.
+seasonality:
+  "01": 0.65
+  "02": 0.70
+  "03": 1.10
+  "04": 1.30
+  "05": 1.45
+  "06": 1.50
+  "07": 1.40
+  "08": 1.35
+  "09": 1.10
+  "10": 0.90
+  "11": 1.15
+  "12": 1.25
+
+# ── acquisition channel distribution ──────────────────────────────────────
+channels:
+  paid_social:  0.30
+  paid_search:  0.25
+  organic:      0.20
+  email:        0.15
+  direct:       0.10
+
+# ── discount behaviour ────────────────────────────────────────────────────
+discounts:
+  pct_orders_with_discount: 0.25
+  avg_discount_pct: 0.15
+  max_discount_pct: 0.40
+
+# ── geography ─────────────────────────────────────────────────────────────
+geography:
+  US: 0.72
+  CA: 0.12
+  AU: 0.06
+  GB: 0.05
+  NZ: 0.03
+  other: 0.02
+
+# ── inventory and stockout ────────────────────────────────────────────────
+inventory:
+  starting_units_high_velocity: 500
+  starting_units_medium_velocity: 300
+  starting_units_low_velocity: 150
+  restock_trigger_days: 14
+  stockout_probability_high: 0.12
+  stockout_probability_medium: 0.05
+  stockout_probability_low: 0.01
+  stockout_duration_max_days: 7
+
+# ── output ────────────────────────────────────────────────────────────────
+output:
+  directory: "data/sample_outputs"

@@ -1,0 +1,53 @@
+name: Nightly dbt build
+
+on:
+  schedule:
+    - cron: '0 6 * * *'    # 6:00 AM UTC daily
+  workflow_dispatch:
+
+jobs:
+  dbt-build:
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      STRATUM_ENV: prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dbt
+        run: pip install dbt-bigquery
+
+      - name: Write GCP credentials
+        run: echo '${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}' > credentials.json
+
+      - name: Write dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          stratum:
+            target: prod
+            outputs:
+              prod:
+                type: bigquery
+                method: service-account
+                project: ${{ secrets.GCP_PROJECT_ID }}
+                dataset: dbt_prod
+                keyfile: credentials.json
+                location: US
+                threads: 8
+                timeout_seconds: 300
+          EOF
+
+      - name: dbt build
+        working-directory: dbt_project
+        run: dbt build --target prod
+
+      - name: dbt test
+        working-directory: dbt_project
+        run: dbt test --target prod

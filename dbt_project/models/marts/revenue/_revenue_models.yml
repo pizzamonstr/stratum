@@ -1,0 +1,59 @@
+version: 2
+
+models:
+  - name: mart_new_vs_returning
+    description: >
+      Monthly revenue and order volume split by customer_type (new vs returning).
+      One row per month per customer_type. The primary instrument for measuring
+      whether the business is growing its repeat customer base over time.
+      Used in the Revenue Overview dashboard and every executive summary.
+    columns:
+      - name: order_month
+        description: First day of the calendar month. Composite key with customer_type.
+        tests: [not_null]
+      - name: customer_type
+        description: "'new' or 'returning', as defined in mart_orders."
+        tests:
+          - not_null
+          - accepted_values:
+              values: [new, returning]
+      - name: orders
+        description: Distinct order count for this month and customer type.
+        tests: [not_null]
+      - name: customers
+        description: Distinct customer count for this month and customer type.
+        tests: [not_null]
+      - name: net_revenue
+        description: Total net revenue for this month and customer type, in USD.
+        tests: [not_null]
+      - name: avg_order_value
+        description: net_revenue divided by orders, in USD.
+
+  - name: mart_cohort_analysis
+    description: >
+      Customer cohort retention table. One row per cohort_month ×
+      months_since_first_purchase. Answers: how do customers acquired in a given
+      month behave over the following 12–24 months? Drives the cohort retention
+      heatmap and measures the long-run value of acquisition spend by period.
+    columns:
+      - name: cohort_key
+        description: >
+          Surrogate primary key. Concatenation of cohort_month and
+          months_since_first_purchase. Used as the incremental merge key.
+        tests: [unique, not_null]
+      - name: cohort_month
+        description: The month in which customers in this cohort placed their first order.
+        tests: [not_null]
+      - name: months_since_first_purchase
+        description: >
+          Months elapsed between cohort_month and the month being measured.
+          Zero = the cohort's first month.
+        tests: [not_null]
+      - name: customers_active
+        description: Distinct customers from this cohort who placed an order in this month.
+        tests: [not_null]
+      - name: revenue
+        description: Net revenue from this cohort in this month, in USD.
+        tests: [not_null]
+      - name: avg_revenue_per_customer
+        description: revenue divided by customers_active, in USD.
