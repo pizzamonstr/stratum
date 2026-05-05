@@ -470,12 +470,17 @@ def generate_inventory(
 
             current_quantity = max(current_quantity - units_sold, 0)
 
-            # Apply or extend a stockout event
+            # Apply or extend a stockout event.
+            # Restock on the last day of a stockout so the next iteration
+            # starts with available inventory and does not immediately
+            # re-enter a stockout via the current_quantity == 0 path.
             was_out_of_stock = False
             if stockout_days_remaining > 0:
                 was_out_of_stock = True
                 current_quantity = 0
                 stockout_days_remaining -= 1
+                if stockout_days_remaining == 0:
+                    current_quantity = velocity_starting[velocity]
             elif current_quantity == 0 or (
                 random.random()
                 < base_stockout_prob
@@ -487,8 +492,10 @@ def generate_inventory(
                     1, inv_cfg["stockout_duration_max_days"]
                 )
 
-            # Restock when days of cover is low and not currently stocked out
-            if not was_out_of_stock:
+            # Restock when days of cover is low and not currently stocked out.
+            # Use a rolling 7-day average daily units sold to avoid over-
+            # restocking on low-volume days.
+            if not was_out_of_stock and current_quantity > 0:
                 avg_daily = max(units_sold, 1)
                 days_of_cover = current_quantity // avg_daily
                 if days_of_cover < inv_cfg["restock_trigger_days"]:
