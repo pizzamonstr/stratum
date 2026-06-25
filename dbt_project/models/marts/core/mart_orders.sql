@@ -32,6 +32,12 @@ customers as (
 
 ),
 
+inventory as (
+
+    select * from {{ ref('stg_shopify__inventory') }}
+
+),
+
 -- Rank each order per customer to identify first (new) vs subsequent (returning)
 customer_order_ranks as (
 
@@ -95,7 +101,10 @@ joined as (
                 date(customer_order_ranks.prior_order_at),
                 day
             )
-        end                     as days_since_prior_order
+        end                     as days_since_prior_order,
+
+        coalesce(inventory.was_out_of_stock, false)
+                                as was_out_of_stock
 
     from line_items
     inner join orders
@@ -104,6 +113,9 @@ joined as (
         on orders.customer_id = customers.customer_id
     inner join customer_order_ranks
         on orders.order_id = customer_order_ranks.order_id
+    left join inventory
+        on line_items.sku = inventory.sku
+        and date(orders.ordered_at) = inventory.inventory_date
 
 )
 
@@ -128,5 +140,6 @@ select
     customer_city,
     customer_country,
     customer_type,
-    days_since_prior_order
+    days_since_prior_order,
+    was_out_of_stock
 from joined
