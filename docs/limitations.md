@@ -53,5 +53,14 @@ conversions and revenue are split evenly across campaigns using a simple 1/campa
 
 ## total_paid_spend appears on all channel rows in mart_attribution
 
-In mart_attribution, Meta and Google spend is joined at date grain only, not at channel grain. This means total_paid_spend on organic, email, and direct rows reflects the full day's paid spend rather than zero or null. As a result, blended_roas on non-paid channel rows is meaningless and should not be used. The correct ROAS figure is in mart_blended_roas, which aggregates total Shopify revenue against total paid spend at monthly grain without breaking down by channel. For a Conduit implementation, consider either filtering mart_attribution to paid channels only before computing ROAS, or adding a is_paid_channel boolean flag to make the distinction
-explicit.
+In mart_attribution, Meta and Google spend is joined at date grain only, not at channel grain. This means total_paid_spend on organic, email, and direct rows reflects the full day's paid spend rather than zero or null. As a result, blended_roas on non-paid channel rows is meaningless and should not be used. The correct ROAS figure is in mart_blended_roas, which aggregates total Shopify revenue against total paid spend at monthly grain without breaking down by channel. For a Conduit implementation, consider either filtering mart_attribution to paid channels only before computing ROAS, or adding a is_paid_channel boolean flag to make the distinction explicit.
+
+## Review dataset is heavily skewed toward hard_goods category
+
+The Datafiniti Amazon product review dataset is electronics-dominant.
+The keyword-based product_category mapping assigns ~98% of reviews to
+hard_goods, leaving consumables and accessories with minimal review
+coverage. This is acceptable for Stratum's portfolio purposes but means
+mart_product_health review signals are only meaningful for the hard_goods
+category. For a Conduit implementation, source a review dataset that
+matches the brand's actual product categories.
