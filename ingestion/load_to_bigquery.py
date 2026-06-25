@@ -37,6 +37,7 @@ if not GCP_PROJECT_ID:
     )
 
 GCP_DATASET_RAW = os.getenv("GCP_DATASET_RAW", "raw_shopify")
+GCP_DATASET_MARKETING = os.getenv("GCP_DATASET_MARKETING", "raw_marketing")
 DATA_DIR = Path("data/sample_outputs")
 
 # Maps CSV stem name to (BigQuery table name, write disposition)
@@ -59,6 +60,25 @@ TABLE_CONFIG: dict[str, tuple[str, bigquery.WriteDisposition]] = {
     ),
     "shopify_inventory": (
         "shopify_inventory",
+        bigquery.WriteDisposition.WRITE_TRUNCATE,
+    ),
+}
+
+MARKETING_TABLE_CONFIG: dict[str, tuple[str, bigquery.WriteDisposition]] = {
+    "meta_ad_insights": (
+        "meta_ad_insights",
+        bigquery.WriteDisposition.WRITE_TRUNCATE,
+    ),
+    "google_performance": (
+        "google_performance",
+        bigquery.WriteDisposition.WRITE_TRUNCATE,
+    ),
+    "klaviyo_email_events": (
+        "klaviyo_email_events",
+        bigquery.WriteDisposition.WRITE_TRUNCATE,
+    ),
+    "ga4_sessions": (
+        "ga4_sessions",
         bigquery.WriteDisposition.WRITE_TRUNCATE,
     ),
 }
@@ -95,6 +115,8 @@ def ensure_dataset_exists(
 def load_table_from_csv(
     client: bigquery.Client,
     csv_stem: str,
+    dataset_id: str,
+    table_config: dict[str, tuple[str, bigquery.WriteDisposition]],
 ) -> None:
     """Load a single CSV file into its corresponding BigQuery table.
 
@@ -105,23 +127,27 @@ def load_table_from_csv(
     csv_stem : str
         CSV filename stem (e.g. 'shopify_orders'). Used to look up
         the table config and locate the file in DATA_DIR.
+    dataset_id : str
+        BigQuery dataset name (not the full reference).
+    table_config : dict
+        Mapping of CSV stem to (table name, write disposition).
 
     Raises
     ------
     KeyError
-        If csv_stem is not a recognised key in TABLE_CONFIG.
+        If csv_stem is not a recognised key in table_config.
     FileNotFoundError
         If the CSV file does not exist in DATA_DIR.
     RuntimeError
         If the BigQuery load job completes with errors.
     """
-    if csv_stem not in TABLE_CONFIG:
+    if csv_stem not in table_config:
         raise KeyError(
             f"Unknown table: '{csv_stem}'. "
-            f"Valid options: {list(TABLE_CONFIG.keys())}"
+            f"Valid options: {list(table_config.keys())}"
         )
 
-    bq_table_name, write_disposition = TABLE_CONFIG[csv_stem]
+    bq_table_name, write_disposition = table_config[csv_stem]
     csv_path = DATA_DIR / f"{csv_stem}.csv"
 
     if not csv_path.exists():
@@ -130,7 +156,7 @@ def load_table_from_csv(
             "Run generate_synthetic_data.py first."
         )
 
-    table_ref = f"{GCP_PROJECT_ID}.{GCP_DATASET_RAW}.{bq_table_name}"
+    table_ref = f"{GCP_PROJECT_ID}.{dataset_id}.{bq_table_name}"
     job_config = bigquery.LoadJobConfig(
         source_format=bigquery.SourceFormat.CSV,
         skip_leading_rows=1,
@@ -154,6 +180,44 @@ def load_table_from_csv(
         table_ref,
         f"{loaded_table.num_rows:,}",
     )
+
+
+def load_marketing_data(client: bigquery.Client) -> None:
+    """Load all marketing CSVs into the raw_marketing BigQuery dataset.
+
+    Parameters
+    ----------
+    client : bigquery.Client
+        Authenticated BigQuery client.
+
+    Raises
+    ------
+    google.cloud.exceptions.GoogleCloudError
+        If dataset creation or any table load fails.
+    """
+    try:
+        ensure_dataset_exists(client, GCP_DATASET_MARKETING)
+    except Exception as exc:
+        logger.error(
+            "Could not prepare marketing dataset %s: %s",
+            GCP_DATASET_MARKETING,
+            exc,
+        )
+        raise
+
+    for csv_stem in MARKETING_TABLE_CONFIG:
+        try:
+            load_table_from_csv(
+                client,
+                csv_stem,
+                GCP_DATASET_MARKETING,
+                MARKETING_TABLE_CONFIG,
+            )
+        except Exception as exc:
+            logger.error("Marketing load failed for %s: %s", csv_stem, exc)
+            raise
+
+    logger.info("Marketing load complete.")
 
 
 def main() -> None:
@@ -182,7 +246,14 @@ def main() -> None:
         [args.table] if args.table else list(TABLE_CONFIG.keys())
     )
     for csv_stem in tables_to_load:
-        load_table_from_csv(client, csv_stem)
+        load_table_from_csv(
+            client,
+            csv_stem,
+            GCP_DATASET_RAW,
+            TABLE_CONFIG,
+        )
+
+    load_marketing_data(client)
 
     logger.info("Load complete.")
 
