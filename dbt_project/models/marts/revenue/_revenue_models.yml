@@ -8,7 +8,7 @@ models:
       whether the business is growing its repeat customer base over time.
       Used in the Revenue Overview dashboard and every executive summary.
     columns:
-      - name: order_month
+      - name: month
         description: First day of the calendar month. Composite key with customer_type.
         tests: [not_null]
       - name: customer_type
@@ -16,24 +16,25 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [new, returning]
+              arguments:
+                values: [new, returning]
       - name: orders
         description: Distinct order count for this month and customer type.
         tests: [not_null]
       - name: customers
         description: Distinct customer count for this month and customer type.
         tests: [not_null]
-      - name: net_revenue
+      - name: revenue
         description: Total net revenue for this month and customer type, in USD.
         tests: [not_null]
       - name: avg_order_value
-        description: net_revenue divided by orders, in USD.
+        description: revenue divided by orders, in USD.
 
   - name: mart_cohort_analysis
     description: >
-      Customer cohort retention table. One row per cohort_month ×
+      Customer cohort retention table. One row per cohort_month x
       months_since_first_purchase. Answers: how do customers acquired in a given
-      month behave over the following 12–24 months? Drives the cohort retention
+      month behave over the following 12-24 months? Drives the cohort retention
       heatmap and measures the long-run value of acquisition spend by period.
     columns:
       - name: cohort_key

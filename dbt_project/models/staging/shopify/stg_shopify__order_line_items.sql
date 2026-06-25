@@ -14,9 +14,10 @@ renamed as (
         sku,
         product_title,
         product_category,
-        cast(quantity as int64)       as quantity,
-        cast(unit_price as float64)   as unit_price,
-        cast(line_revenue as float64) as line_revenue
+        cast(quantity as int64)     as quantity,
+        cast(unit_price as float64) as unit_price,
+        cast(quantity as float64) * cast(unit_price as float64)
+                                    as line_revenue
 
     from source
 

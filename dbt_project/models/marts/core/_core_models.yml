@@ -25,7 +25,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [paid, refunded, partially_refunded]
+              arguments:
+                values: [paid, refunded, partially_refunded]
       - name: gross_revenue
         description: Order revenue before discounts, in USD.
         tests: [not_null]
@@ -43,7 +44,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [paid_social, paid_search, organic, email, direct]
+              arguments:
+                values: [paid_social, paid_search, organic, email, direct]
       - name: customer_type
         description: >
           'new' if this is the customer's first-ever order; 'returning' for
@@ -52,7 +54,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [new, returning]
+              arguments:
+                values: [new, returning]
       - name: sku
         description: Product SKU for this line item.
         tests: [not_null]
@@ -61,7 +64,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [hard_goods, consumables, accessories]
+              arguments:
+                values: [hard_goods, consumables, accessories]
       - name: quantity
         description: Units ordered for this line item.
         tests: [not_null]
@@ -69,7 +73,7 @@ models:
         description: Price per unit at time of order, in USD.
         tests: [not_null]
       - name: line_revenue
-        description: quantity × unit_price for this line, in USD.
+        description: quantity x unit_price for this line, in USD.
         tests: [not_null]
       - name: customer_email
         description: Customer email address, joined from stg_shopify__customers.
@@ -81,6 +85,11 @@ models:
         description: >
           Days between this order and the customer's previous order.
           Null for first orders (customer_type = 'new').
+      - name: was_out_of_stock
+        description: >
+          True if the SKU was out of stock on the order date, joined from
+          stg_shopify__inventory on sku and ordered_at date.
+        tests: [not_null]
 
   - name: mart_customers
     description: >
@@ -113,6 +122,8 @@ models:
         description: total_revenue divided by total_orders, in USD.
       - name: days_since_last_order
         description: Days between most_recent_order_at and today.
+      - name: days_since_first_order
+        description: Days between first_order_at and today.
       - name: acquisition_channel_first
         description: The acquisition channel that drove the customer's first order.
       - name: favourite_category
@@ -120,11 +131,12 @@ models:
       - name: customer_segment
         description: >
           Segment based on lifetime order count.
-          one_time = 1 order. occasional = 2–4 orders. loyal = 5+ orders.
+          one_time = 1 order. occasional = 2-4 orders. loyal = 5+ orders.
         tests:
           - not_null
           - accepted_values:
-              values: [one_time, occasional, loyal]
+              arguments:
+                values: [one_time, occasional, loyal]
 
   - name: mart_inventory
     description: >

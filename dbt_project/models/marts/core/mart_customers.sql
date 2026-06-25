@@ -97,6 +97,11 @@ customer_summary as (
             date(max(order_grain.ordered_at)),
             day
         )                                               as days_since_last_order,
+        date_diff(
+            current_date(),
+            date(min(order_grain.ordered_at)),
+            day
+        )                                               as days_since_first_order,
         first_order_channels.acquisition_channel_first,
         top_category.favourite_category,
 
@@ -133,6 +138,7 @@ select
     total_revenue,
     avg_order_value,
     days_since_last_order,
+    days_since_first_order,
     acquisition_channel_first,
     favourite_category,
     customer_segment

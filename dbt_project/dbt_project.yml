@@ -23,10 +23,6 @@ models:
           +materialized: incremental
           +incremental_strategy: merge
           +unique_key: line_item_id
-        mart_cohort_analysis:
-          +materialized: incremental
-          +incremental_strategy: merge
-          +unique_key: cohort_key
       revenue:
         +materialized: table
       marketing:

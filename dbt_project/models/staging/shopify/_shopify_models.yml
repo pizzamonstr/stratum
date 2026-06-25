@@ -21,7 +21,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [paid, refunded, partially_refunded]
+              arguments:
+                values: [paid, refunded, partially_refunded]
       - name: gross_revenue
         description: Order revenue before discounts, in USD.
         tests: [not_null]
@@ -33,7 +34,8 @@ models:
         tests:
           - not_null
           - accepted_values:
-              values: [paid_social, paid_search, organic, email, direct]
+              arguments:
+                values: [paid_social, paid_search, organic, email, direct]
 
   - name: stg_shopify__customers
     description: >
@@ -65,17 +67,21 @@ models:
         description: Product SKU for this line item.
         tests: [not_null]
       - name: line_revenue
-        description: quantity × unit_price for this line, in USD.
+        description: quantity x unit_price for this line, in USD.
         tests: [not_null]
 
   - name: stg_shopify__inventory
     description: >
       Daily on-hand inventory quantity per SKU. One row per SKU per day.
-      Business logic (low_stock_flag, days_of_stock_remaining) is added
-      in mart_inventory.
+      low_stock flags days where quantity falls below var('low_stock_threshold').
+      Business logic (days_of_stock_remaining, rolling averages) is in mart_inventory.
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [sku, inventory_date]
     columns:
       - name: sku
-        description: Product SKU. Composite key with inventory_date.
+        description: Product SKU. Part of composite primary key with inventory_date.
         tests: [not_null]
       - name: inventory_date
         description: Calendar date for this inventory snapshot.
@@ -85,4 +91,9 @@ models:
         tests: [not_null]
       - name: was_out_of_stock
         description: True if inventory hit zero on this day.
+        tests: [not_null]
+      - name: low_stock
+        description: >
+          True if inventory_quantity is below var('low_stock_threshold').
+          Threshold is defined in dbt_project.yml vars.
         tests: [not_null]
