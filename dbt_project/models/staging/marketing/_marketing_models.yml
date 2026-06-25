@@ -1,0 +1,81 @@
+version: 2
+
+models:
+  - name: stg_meta__ad_insights
+    description: >
+      Cleaned and typed Meta ad insights at campaign and ad set grain.
+      One row per ad set per day. Platform-reported conversions are
+      renamed and stored but not used for attribution downstream.
+    columns:
+      - name: adset_id
+        description: Meta ad set ID.
+        tests: [not_null]
+      - name: date
+        description: Calendar date for this performance snapshot.
+        tests: [not_null]
+      - name: audience_type
+        description: Prospecting or retargeting audience segment.
+        tests:
+          - accepted_values:
+              arguments:
+                values: [prospecting, retargeting]
+      - name: spend
+        description: Ad spend in USD for this ad set on this date.
+        tests: [not_null]
+      - name: platform
+        description: Advertising platform identifier.
+        tests:
+          - accepted_values:
+              arguments:
+                values: [meta]
+
+  - name: stg_google__performance
+    description: >
+      Cleaned and typed Google Ads performance at campaign and ad group
+      grain. One row per ad group per day. Platform-reported conversions
+      are renamed and stored but not used for attribution downstream.
+    columns:
+      - name: ad_group_id
+        description: Google Ads ad group ID.
+        tests: [not_null]
+      - name: date
+        description: Calendar date for this performance snapshot.
+        tests: [not_null]
+      - name: campaign_type
+        description: Google campaign type (search or shopping).
+        tests:
+          - accepted_values:
+              arguments:
+                values: [search, shopping]
+      - name: spend
+        description: Ad spend in USD for this ad group on this date.
+        tests: [not_null]
+      - name: platform
+        description: Advertising platform identifier.
+        tests:
+          - accepted_values:
+              arguments:
+                values: [google]
+
+  - name: stg_klaviyo__email_events
+    description: >
+      Cleaned and typed Klaviyo email engagement events. One row per
+      event. email_type is derived from flow_name (flow vs campaign).
+    columns:
+      - name: event_id
+        description: Klaviyo event ID. Primary key.
+        tests: [unique, not_null]
+      - name: event_type
+        description: Email lifecycle event type.
+        tests:
+          - accepted_values:
+              arguments:
+                values:
+                  [sent, delivered, opened, clicked, converted, unsubscribed]
+      - name: email_type
+        description: >
+          'flow' when flow_name is present; 'campaign' otherwise.
+        tests:
+          - accepted_values:
+              arguments:
+                values: [flow, campaign]

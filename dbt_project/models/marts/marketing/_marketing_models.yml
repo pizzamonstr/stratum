@@ -1,0 +1,87 @@
+version: 2
+
+models:
+  - name: mart_attribution
+    description: >
+      Daily last-touch attribution by acquisition channel. One row per
+      channel per date. Answers: how much Shopify revenue did each channel
+      drive, and what was paid spend and blended ROAS on each day?
+      Shopify net_revenue is the source of truth; platform-reported
+      conversions are not used.
+    columns:
+      - name: date
+        description: Calendar date. Composite key with acquisition_channel.
+        tests: [not_null]
+      - name: acquisition_channel
+        description: Last-touch acquisition channel from Shopify orders.
+        tests: [not_null]
+      - name: shopify_orders
+        description: Distinct Shopify orders attributed to this channel on this date.
+      - name: shopify_revenue
+        description: >
+          Shopify net_revenue attributed to this channel on this date, in USD.
+          The single agreed revenue figure for attribution.
+        tests: [not_null]
+      - name: meta_spend
+        description: >
+          Total Meta ad spend on this date. Populated only for paid_social
+          rows; null for all other channels.
+      - name: google_spend
+        description: >
+          Total Google ad spend on this date. Populated only for paid_search
+          rows; null for all other channels.
+      - name: total_paid_spend
+        description: >
+          Combined Meta and Google spend on this date. Same value across
+          all channel rows for a given date.
+      - name: blended_roas
+        description: >
+          shopify_revenue divided by total_paid_spend. Uses nullif on the
+          denominator to prevent divide-by-zero errors.
+      - name: new_customer_revenue
+        description: >
+          Shopify net_revenue from new customers on this channel and date,
+          in USD.
+      - name: returning_customer_revenue
+        description: >
+          Shopify net_revenue from returning customers on this channel and
+          date, in USD.
+
+  - name: mart_blended_roas
+    description: >
+      Monthly blended ROAS using Shopify net revenue as the numerator and
+      total paid spend (Meta + Google combined) as the denominator. This
+      is the single agreed monthly ROAS figure used across all marketing
+      reporting. Platform-reported conversion figures are not used.
+    columns:
+      - name: month
+        description: First day of the calendar month. Primary key.
+        tests: [unique, not_null]
+      - name: total_shopify_revenue
+        description: Total Shopify net revenue across all channels, in USD.
+      - name: total_paid_spend
+        description: >
+          Combined Meta and Google ad spend for the month, in USD.
+      - name: blended_roas
+        description: >
+          total_shopify_revenue divided by total_paid_spend. The agreed
+          monthly ROAS figure. Uses nullif on the denominator.
+        tests: [not_null]
+      - name: meta_spend
+        description: Total Meta ad spend for the month, in USD.
+      - name: google_spend
+        description: Total Google ad spend for the month, in USD.
+      - name: new_customer_revenue
+        description: >
+          Shopify net revenue from new customers for the month, in USD.
+      - name: returning_customer_revenue
+        description: >
+          Shopify net revenue from returning customers for the month,
+          in USD.
+      - name: new_customer_roas
+        description: >
+          new_customer_revenue divided by total_paid_spend for the month.
+      - name: returning_customer_roas
+        description: >
+          returning_customer_revenue divided by total_paid_spend for the
+          month.

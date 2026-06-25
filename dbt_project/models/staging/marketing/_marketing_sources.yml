@@ -1,0 +1,24 @@
+version: 2
+
+sources:
+  - name: marketing
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema: raw_marketing
+    description: >
+      Raw marketing platform data loaded from synthetic CSVs via
+      load_to_bigquery.py. Meta, Google, Klaviyo, and GA4 exports.
+    tables:
+      - name: meta_ad_insights
+        description: >
+          Daily Meta ad performance at campaign and ad set grain.
+          Platform-reported conversions are stored but not used for attribution.
+      - name: google_performance
+        description: >
+          Daily Google Ads performance at campaign and ad group grain.
+          Platform-reported conversions are stored but not used for attribution.
+      - name: klaviyo_email_events
+        description: >
+          Event-level Klaviyo email engagement (sent, opened, clicked, etc.).
+      - name: ga4_sessions
+        description: >
+          Session-level GA4 web analytics aligned to Shopify channel mix.
