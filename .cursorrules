@@ -1,0 +1,520 @@
+# Stratum / Conduit -- Cursor Rules
+
+## Project Context
+
+This is a two-part analytics engineering project built in Python and SQL.
+
+**Stratum** is a portfolio analytics pipeline for a generic DTC outdoor e-commerce brand,
+built on synthetic and public Kaggle data. It lives publicly at `pizzamonstr/stratum`.
+
+**Conduit** is the real brand implementation layer that adapts Stratum for a specific brand's
+actual stack, real data, and real business questions.
+
+**Stack:** Python + BigQuery + dbt Core + Looker Studio, orchestrated via GitHub Actions.
+
+**Languages in this project:** Python (pipeline scripts) and SQL (dbt models and tests).
+Do not suggest R, JavaScript, or other languages unless explicitly asked.
+
+---
+
+## Key Principles
+
+- Write clean, efficient, readable code. Clarity over cleverness.
+- Write DRY code. If the same logic appears in two places, extract it into a function
+  or a dbt macro. Do not repeat yourself.
+- Every function does one thing. Complex operations are broken into small, composable
+  helper functions.
+- Every LLM API call is wrapped in try/except with a null fallback. The pipeline never
+  crashes on a bad API response.
+- Raw text is always stored alongside parsed output. Failed parses are flagged, never dropped.
+- Never hard-code values that belong in config. Data generation parameters live in
+  `synthetic_config.yml`. Credentials live in `.env`. Column names and accepted values
+  live in their dbt YAML files.
+- Business logic lives in the mart layer. Staging models rename, cast, and filter only.
+  No joins. No business logic in staging. Changing a KPI definition means changing one file.
+
+---
+
+## Project Structure
+
+```
+stratum/
+├── README.md
+├── .env.example                            # credential structure only, no real values
+├── .gitignore
+│
+├── data/
+│   ├── generate_synthetic_data.py
+│   ├── synthetic_config.yml                # controls all data generation parameters
+│   └── sample_outputs/                     # small sample CSVs for docs only
+│
+├── ingestion/
+│   ├── load_to_bigquery.py
+│   ├── ai_visibility_runner.py
+│   ├── review_parser.py
+│   └── ticket_classifier.py
+│
+├── dbt_project/
+│   ├── dbt_project.yml
+│   ├── profiles.yml.example
+│   ├── models/
+│   │   ├── staging/
+│   │   └── marts/
+│   ├── tests/
+│   │   └── custom/
+│   └── macros/
+│
+├── dashboards/
+│   └── screenshots/
+│
+└── docs/
+    ├── architecture.md
+    ├── data_dictionary.md
+    ├── decisions.md
+    └── limitations.md
+```
+
+---
+
+## Python Standards
+
+### Script Responsibilities
+
+Each script has a single job. Do not expand scope without a clear reason.
+
+| Script | Job |
+|---|---|
+| `generate_synthetic_data.py` | Generates all synthetic transactional and marketing source data |
+| `load_to_bigquery.py` | Loads CSV files (synthetic or Kaggle) to BigQuery raw schemas |
+| `review_parser.py` | LLM parsing of Kaggle review dataset to structured JSON |
+| `ticket_classifier.py` | LLM classification of support ticket dataset |
+| `ai_visibility_runner.py` | Queries LLMs with the AI visibility query bank, parses and writes results |
+
+### Code Style
+
+- Follow PEP 8. Keep lines under 88 characters.
+- Use `snake_case` for all variable, function, and file names.
+- Use descriptive names: `parsed_review` not `r`. `unparsed_ticket_ids` not `ids`.
+- Use explicit logic over clever one-liners. A clear loop is better than an unreadable
+  list comprehension.
+- Add comments that explain intent, not ones that restate what the code already says.
+- Use blank lines to separate logical sections within functions.
+- Use `logging` not `print()` in production pipeline scripts.
+
+### Function Design
+
+- Each function does one thing.
+- Extract any logic used in more than one place into a named helper function.
+- Always include NumPy-style docstrings with Parameters, Returns, and Raises sections:
+
+```python
+def parse_llm_response(raw_text: str, numeric_fields: list[str] | None = None) -> dict:
+    """Parse a raw LLM JSON response into structured fields with null fallback.
+
+    Parameters
+    ----------
+    raw_text : str
+        Raw text response from the LLM API call.
+    numeric_fields : list[str] or None, optional
+        Field names that should be coerced to float. Default is None.
+
+    Returns
+    -------
+    dict
+        Parsed fields with parse_failed flag set to False on success.
+        Returns a null fallback dict with parse_failed set to True on failure.
+
+    Raises
+    ------
+    ValueError
+        If raw_text is None or empty.
+    """
+```
+
+- Use type hints on all function signatures.
+- Use default parameter values where appropriate.
+- Always wrap LLM API calls and BigQuery operations in try/except blocks.
+
+### Module-Level Docstrings
+
+Every script file starts with a module-level docstring explaining what it does,
+what it reads, what it writes, and when it runs:
+
+```python
+"""
+review_parser.py
+
+Reads unparsed reviews from raw_enrichment.reviews_raw in BigQuery,
+calls the LLM API to extract structured sentiment and topic fields,
+and writes results to raw_enrichment.reviews_parsed.
+
+Runs on demand for the initial Kaggle dataset load, then nightly
+via GitHub Actions for incremental updates.
+
+Inputs:  BigQuery raw_enrichment.reviews_raw
+Outputs: BigQuery raw_enrichment.reviews_parsed
+Schedule: On demand (initial), nightly 11pm (incremental)
+"""
+```
+
+### API Key Management
+
+Never hard-code credentials. Always use `.env` + `python-dotenv`.
+
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+anthropic_key = os.getenv('ANTHROPIC_API_KEY')
+if not anthropic_key:
+    raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
+```
+
+Keys required for this project:
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
+- `PERPLEXITY_API_KEY`
+- `GOOGLE_APPLICATION_CREDENTIALS` (path to BigQuery service account JSON)
+
+These keys never appear in code, comments, config YAML, or commit history.
+`.env` is in `.gitignore`. Commit `.env.example` with placeholder values only.
+
+### Configuration
+
+Data generation parameters live in `data/synthetic_config.yml`. Scripts read from
+config rather than having these values inline:
+
+```python
+import yaml
+
+with open('data/synthetic_config.yml', 'r') as f:
+    config = yaml.safe_load(f)
+
+date_range_start = config['date_range']['start']
+customer_volume = config['customers']['total']
+```
+
+Values that belong in config: date ranges, customer and order volumes, SKU definitions,
+seasonal multipliers, channel distribution ratios, stockout probability, API retry limits.
+
+### Defensive Parsing -- the Standard Pattern
+
+All three LLM scripts use this same pattern. Do not deviate from it:
+
+```python
+import re
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+
+def parse_llm_response(raw_text: str, numeric_fields: list[str] | None = None) -> dict:
+    """Parse LLM JSON response with null fallback on failure."""
+    if not raw_text:
+        raise ValueError("raw_text cannot be None or empty")
+
+    # Strip markdown code fences if present
+    cleaned = re.sub(r'```json|```', '', raw_text).strip()
+
+    try:
+        result = json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.warning("JSON parse failed: %s", e)
+        return {
+            "parse_failed": True,
+            "parse_error": "invalid_json",
+            "raw_text_stored": True
+        }
+
+    # Type coerce known numeric fields
+    for field in (numeric_fields or []):
+        if result.get(field) is not None:
+            try:
+                result[field] = float(result[field])
+            except (ValueError, TypeError):
+                logger.warning("Could not coerce field '%s' to float", field)
+                result[field] = None
+
+    result["parse_failed"] = False
+    return result
+```
+
+Rules that must always hold:
+- Always store raw response text regardless of parse outcome.
+- Flag failed parses with `parse_failed = True`. Never silently drop.
+- Use exponential backoff on rate limit errors.
+- The pipeline must never crash on a bad API response.
+
+### BigQuery Writes
+
+Use the `google-cloud-bigquery` Python client. Do not write intermediate data to
+local disk in production scripts. Write directly to BigQuery:
+
+```python
+from google.cloud import bigquery
+
+client = bigquery.Client()
+errors = client.insert_rows_json(table_ref, rows_to_insert)
+if errors:
+    raise RuntimeError(f"BigQuery insert errors: {errors}")
+```
+
+### What NOT to Do in Python
+
+- Do NOT use `import *`
+- Do NOT hard-code file paths. Use `os.path` or `pathlib`.
+- Do NOT write intermediate data to local disk in production pipeline scripts.
+  Write to BigQuery.
+- Do NOT print sensitive values (API keys, credentials).
+- Do NOT suppress exceptions silently. Always log and either re-raise or return
+  a flagged null fallback.
+- Do NOT add new package dependencies without flagging it explicitly.
+
+---
+
+## SQL / dbt Standards
+
+### Layer Separation -- Non-Negotiable
+
+**Staging models are views.**
+- Rename columns to standard names.
+- Cast types explicitly.
+- Filter junk rows (voided orders, test accounts).
+- No joins between source entities.
+- No business logic, no KPI calculations.
+
+**Mart models are tables.**
+- Joins happen here.
+- Business logic happens here.
+- KPIs are defined here and nowhere else.
+
+If you find yourself writing a join in a staging model, stop and move it to a mart.
+If a KPI is being calculated in Looker Studio, stop and add it to the mart instead.
+
+### SQL Style
+
+- Use lowercase keywords: `select`, `from`, `where`, `join`, `group by`, `order by`
+- One column per line in `select` statements
+- Align `as` aliases consistently
+- Use CTEs (`with`) to break complex logic into readable named steps
+- Table aliases should be descriptive, not single letters: `orders` not `o`
+- Cast types explicitly. Never rely on implicit coercion.
+- Use `{{ ref() }}` to reference dbt models. Never reference raw schema tables directly
+  in mart models.
+
+```sql
+with orders as (
+
+    select * from {{ ref('stg_shopify__orders') }}
+
+),
+
+customers as (
+
+    select * from {{ ref('stg_shopify__customers') }}
+
+),
+
+joined as (
+
+    select
+        orders.order_id,
+        orders.ordered_at,
+        orders.net_revenue,
+        customers.customer_id,
+        customers.city
+    from orders
+    left join customers
+        on orders.customer_id = customers.customer_id
+
+)
+
+select * from joined
+```
+
+### Naming Conventions
+
+**Model files**
+- Staging: `stg_{source}__{entity}.sql` (double underscore between source and entity)
+- Marts: `mart_{domain}_{concept}.sql`
+- Macros: `snake_case.sql`
+
+**Column names**
+- IDs end in `_id`: `order_id`, `customer_id`, `line_item_id`
+- Timestamps end in `_at`: `ordered_at`, `created_at`, `parsed_at`, `resolved_at`
+- Booleans start with `is_` or `was_`: `is_new_customer`, `was_out_of_stock`,
+  `parse_failed`
+- Rate and ratio columns end in `_rate` or `_pct`: `parse_failure_rate`, `pct_positive`
+- Monetary columns are always `float`. Never `integer` for revenue fields.
+
+### Materialisation
+
+Defined in `dbt_project.yml` at the folder level, not per-model unless overriding:
+- Staging: `view`
+- Core and revenue marts: `table`
+- High-volume marts with date partitioning (`mart_orders`, `mart_cohort_analysis`):
+  `incremental`
+
+```sql
+{{
+    config(
+        materialized='incremental',
+        unique_key='order_id',
+        incremental_strategy='merge'
+    )
+}}
+```
+
+### Schema Tests
+
+Every model has a YAML file. At minimum:
+- `unique` and `not_null` on the primary key
+- `accepted_values` on every enum field
+- `not_null` on net_revenue and other non-nullable business fields
+
+```yaml
+models:
+  - name: mart_orders
+    description: >
+      Order line item spine. One row per line item. All downstream mart models
+      reference this. Customer type, acquisition channel, and stockout flag are
+      all resolved here.
+    columns:
+      - name: order_id
+        tests:
+          - unique
+          - not_null
+      - name: customer_type
+        tests:
+          - accepted_values:
+              values: ['new', 'returning']
+      - name: net_revenue
+        tests:
+          - not_null
+```
+
+### Custom Tests
+
+Custom tests live in `tests/custom/`. Each test is a SQL query that returns rows
+on failure and zero rows on success.
+
+Naming pattern: `assert_{what_is_being_validated}.sql`
+
+Every custom test file starts with a comment explaining what it validates and why:
+
+```sql
+-- assert_revenue_positive.sql
+-- Net revenue must be >= 0 for all non-refund order rows.
+-- A negative value here indicates a data issue in the Shopify source
+-- or a missing refund flag in the staging model.
+
+select order_id, net_revenue
+from {{ ref('mart_orders') }}
+where net_revenue < 0
+  and is_refund = false
+```
+
+### Macros
+
+Extract repeated SQL patterns into macros. Use macros for:
+- Date spine generation
+- Net revenue calculation
+- Any logic that appears verbatim in more than two models
+
+### dbt Model Descriptions
+
+Every model has a description in its YAML file. Descriptions explain what the model
+contains and what business question it answers -- not just a restatement of column names:
+
+```yaml
+- name: mart_blended_roas
+  description: >
+    Monthly blended ROAS using Shopify net revenue as the numerator and total paid
+    spend (Meta + Google combined) as the denominator. This is the single agreed
+    revenue figure used across all marketing reporting. Platform-reported conversion
+    figures from Meta and Google are stored in this model but are not used in the
+    ROAS calculation.
+```
+
+Column descriptions are required for all mart model columns. Optional but encouraged
+for staging columns where the field name is not self-explanatory.
+
+### What NOT to Do in SQL / dbt
+
+- Do NOT write joins in staging models
+- Do NOT reference raw schema tables directly in mart models -- always stage first
+- Do NOT use `SELECT *` in mart models -- list columns explicitly
+- Do NOT compute KPIs in Looker Studio -- they belong in the mart layer
+- Do NOT hard-code values that belong in `dbt_project.yml` variables or macros
+- Do NOT modify `target/` or `logs/` -- these are generated and gitignored
+
+---
+
+## Error Handling
+
+- Validate inputs at the top of functions. Fail fast with clear, specific messages.
+- Use the `logging` module in production scripts. Use appropriate levels:
+  - `INFO` for normal progress checkpoints
+  - `WARNING` for recoverable issues (parse failures, rate limit retries)
+  - `ERROR` for failures that require attention
+- Never suppress exceptions silently.
+- dbt schema test failures and GitHub Actions script errors route to `#data-alerts`.
+  Write code as if alerting depends on clean error propagation -- because it does.
+
+---
+
+## Testing
+
+**Python scripts:** Write unit tests for all parsing and transformation functions.
+Test normal input, edge cases (empty strings, None, malformed JSON), and error paths.
+Parse failure handling must be explicitly tested -- it is load-bearing.
+
+**dbt models:** Schema tests defined in YAML are the baseline. Custom tests in
+`tests/custom/` cover business logic assertions that schema tests cannot express.
+Target: all schema tests and custom tests pass clean on every `dbt build`.
+
+---
+
+## Dependencies
+
+Minimize. Do not add packages without a clear reason.
+
+**Python -- current dependencies:**
+- `google-cloud-bigquery` -- BigQuery reads and writes
+- `anthropic` -- Claude API
+- `openai` -- GPT-4o and GPT-4o-mini API
+- `faker` -- synthetic data generation
+- `python-dotenv` -- credential management
+- `pyyaml` -- reading synthetic_config.yml
+- `pandas` -- used in data generation and BQ load steps only
+- `requests` -- Perplexity API (no official Python client)
+
+Do not introduce new dependencies without flagging it.
+
+---
+
+## Repository Hygiene
+
+- `.env` is always in `.gitignore`. Never commit it.
+- No real data files committed. Synthetic and Kaggle CSVs are gitignored.
+  `sample_outputs/` contains small illustrative files only.
+- `profiles.yml` (dbt BigQuery connection) is never committed.
+  Commit `profiles.yml.example` with placeholder values.
+- Credentials never appear in code, comments, config files, or commit history.
+- Keep `.gitignore` focused. Only include files that actually exist or are likely
+  to be generated. Do not add an exhaustive template list.
+
+---
+
+## Key Conventions Summary
+
+1. **DO NOT hard-code credentials.** Use `.env` + `python-dotenv`.
+2. **DO NOT hard-code config values.** Use `synthetic_config.yml`.
+3. **DO NOT write joins in staging models.**
+4. **DO NOT compute KPIs in dashboards.** Define them in the mart layer.
+5. **DO NOT let the pipeline crash on a bad API response.** Always use null fallback.
+6. **DO NOT drop failed parses.** Flag them and store the raw text.
+7. **DO NOT commit `.env`, `profiles.yml`, or real data files.**
+8. **DO NOT add new dependencies without flagging it.**
