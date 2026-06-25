@@ -58,3 +58,36 @@ models:
         tests: [not_null]
       - name: avg_revenue_per_customer
         description: revenue divided by customers_active, in USD.
+
+  - name: mart_revenue_summary
+    description: >
+      Monthly revenue by product category, acquisition channel, and shipping
+      country. One row per month per product_category per acquisition_channel
+      per shipping_country. Answers: where is revenue coming from by category,
+      channel, and geography? Order-level net_revenue is allocated to line
+      items proportionally by line_revenue share.
+    columns:
+      - name: month
+        description: First day of the calendar month.
+        tests: [not_null]
+      - name: product_category
+        description: Product category for the line items in this slice.
+        tests: [not_null]
+      - name: acquisition_channel
+        description: Last-touch acquisition channel from the order record.
+        tests: [not_null]
+      - name: shipping_country
+        description: Shipping country from the order record.
+        tests: [not_null]
+      - name: orders
+        description: Distinct order count for this slice.
+      - name: customers
+        description: Distinct customer count for this slice.
+      - name: revenue
+        description: >
+          Allocated Shopify net_revenue for this slice, in USD. Sums to
+          total net_revenue when aggregated across all categories within
+          a month.
+        tests: [not_null]
+      - name: avg_order_value
+        description: revenue divided by orders, in USD.

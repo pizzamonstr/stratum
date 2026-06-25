@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: stg_ga4__sessions
+    description: >
+      Cleaned and typed GA4 session data. One row per web session.
+      shopify_order_id is the join key to Shopify orders for converting
+      sessions. Used for onsite funnel analysis, not for ROAS attribution.
+    columns:
+      - name: session_id
+        description: GA4 session ID. Primary key.
+        tests: [unique, not_null]
+      - name: acquisition_channel
+        description: Last-touch acquisition channel aligned to Shopify taxonomy.
+        tests:
+          - accepted_values:
+              arguments:
+                values:
+                  [paid_social, paid_search, organic, email, direct]
