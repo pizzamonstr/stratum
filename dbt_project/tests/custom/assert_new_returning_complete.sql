@@ -1,36 +1,38 @@
 -- assert_new_returning_complete.sql
--- The sum of new + returning customers in mart_new_vs_returning must equal
--- the distinct customer count in mart_orders for every month.
--- Any row returned indicates a customer_type mapping gap.
+-- New + returning customer counts in mart_new_vs_returning must equal the
+-- total distinct customer count per month in mart_orders. A mismatch means
+-- some orders are missing a customer_type assignment or are being double-counted
+-- in the monthly aggregation.
 
-with typed_totals as (
+with order_customers_by_month as (
 
     select
-        order_month,
-        sum(customers) as customers_by_type
+        date_trunc(date(ordered_at), month) as month,
+        count(distinct customer_id)         as total_customers
 
-    from {{ ref('mart_new_vs_returning') }}
-    group by order_month
+    from {{ ref('mart_orders') }}
+    group by month
 
 ),
 
-actual_totals as (
+new_returning_by_month as (
 
     select
-        date_trunc(date(ordered_at), month)   as order_month,
-        count(distinct customer_id)           as total_customers
+        month,
+        sum(customers) as new_returning_customers
 
-    from {{ ref('mart_orders') }}
-    group by date_trunc(date(ordered_at), month)
+    from {{ ref('mart_new_vs_returning') }}
+    group by month
 
 )
 
 select
-    typed_totals.order_month,
-    typed_totals.customers_by_type,
-    actual_totals.total_customers
+    order_customers_by_month.month,
+    order_customers_by_month.total_customers,
+    new_returning_by_month.new_returning_customers
 
-from typed_totals
-inner join actual_totals
-    on typed_totals.order_month = actual_totals.order_month
-where abs(typed_totals.customers_by_type - actual_totals.total_customers) > 0
+from order_customers_by_month
+inner join new_returning_by_month
+    on order_customers_by_month.month = new_returning_by_month.month
+where order_customers_by_month.total_customers
+    != new_returning_by_month.new_returning_customers

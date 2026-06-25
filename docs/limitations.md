@@ -28,3 +28,11 @@ Some reviews and tickets will fail to parse. The parse_failure_rate
 test alerts if failures exceed 10% in any week. Failed parses are
 flagged with parse_failed = true and raw text is retained for
 reprocessing if parsing logic improves.
+
+## Incremental filter scope in mart_orders
+
+The incremental filter in `mart_orders` is applied to the `orders` CTE only.
+The `order_line_items` CTE is fully scanned on every incremental run and joined
+down to new orders via the merge on `line_item_id`. This is logically correct
+but inefficient at scale. For a Conduit implementation on real data, the line
+items CTE should carry a matching date filter to avoid a full table scan.
