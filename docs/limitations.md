@@ -36,3 +36,20 @@ The `order_line_items` CTE is fully scanned on every incremental run and joined
 down to new orders via the merge on `line_item_id`. This is logically correct
 but inefficient at scale. For a Conduit implementation on real data, the line
 items CTE should carry a matching date filter to avoid a full table scan.
+
+## mart_revenue_summary is a stub in Checkpoint A
+
+mart_revenue_summary was scaffolded in Checkpoint A but not fully implemented.
+The Revenue dashboard detects this at runtime and falls back to mart_orders for
+category and channel breakdowns. This fallback will be removed when
+mart_revenue_summary is properly built in Checkpoint B with product_category,
+acquisition_channel, and revenue columns populated.
+
+## Revenue dashboard fallback pulls full mart_orders into memory
+
+When mart_revenue_summary is not populated, the Revenue page loads the entire
+mart_orders table into a pandas DataFrame to compute category and channel
+breakdowns. This is acceptable at Stratum's synthetic data volumes but would
+be slow and expensive on a real dataset. For a Conduit implementation, either
+build mart_revenue_summary properly before connecting the dashboard, or push
+the aggregation into a BigQuery query rather than doing it in pandas.
