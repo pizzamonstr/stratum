@@ -175,6 +175,100 @@ inventory:
   stockout_probability_low: 0.01
   stockout_duration_max_days: 7
 
+# ── marketing sources (Checkpoint B) ──────────────────────────────────────
+marketing:
+  # Months with seasonality >= peak_threshold use peak spend ranges.
+  peak_seasonality_threshold: 1.10
+
+  meta:
+    prospecting_campaigns: 2
+    retargeting_campaigns: 2
+    adsets_per_campaign: 1
+    cpm:
+      prospecting: {min: 8.0, max: 15.0}
+      retargeting: {min: 15.0, max: 25.0}
+    ctr:
+      prospecting: {min: 0.008, max: 0.015}
+      retargeting: {min: 0.015, max: 0.03}
+    daily_spend_per_campaign:
+      peak: {min: 120.0, max: 220.0}
+      off_peak: {min: 45.0, max: 95.0}
+    reach_rate: {min: 0.60, max: 0.90}
+    attribution_overclaim_multiplier: {min: 2.0, max: 4.0}
+
+  google:
+    ad_groups_per_campaign: 1
+    campaigns:
+      - name: "Brand Search"
+        campaign_type: search
+        search_subtype: branded
+        cpc: {min: 0.50, max: 2.00}
+        ctr: {min: 0.05, max: 0.10}
+      - name: "Non-Brand Search"
+        campaign_type: search
+        search_subtype: non_branded
+        cpc: {min: 1.50, max: 4.00}
+        ctr: {min: 0.02, max: 0.05}
+      - name: "Shopping"
+        campaign_type: shopping
+        search_subtype: null
+        cpc: {min: 0.40, max: 1.50}
+        ctr: {min: 0.005, max: 0.02}
+    daily_spend_per_campaign:
+      peak: {min: 80.0, max: 160.0}
+      off_peak: {min: 30.0, max: 70.0}
+    impression_share: {min: 0.55, max: 0.85}
+    lost_impression_share_budget: {min: 0.05, max: 0.25}
+    attribution_overclaim_multiplier: {min: 2.0, max: 4.0}
+
+  klaviyo:
+    flows:
+      - welcome_series
+      - abandoned_cart
+      - post_purchase
+      - win_back
+    campaign_types:
+      - seasonal_promotion
+      - product_launch
+    monthly_sends:
+      flow: 600
+      campaign: 450
+    open_rate:
+      flow: {min: 0.25, max: 0.35}
+      campaign: {min: 0.18, max: 0.25}
+    click_rate:
+      flow: {min: 0.03, max: 0.05}
+      campaign: {min: 0.015, max: 0.03}
+    conversion_rate_on_click: {min: 0.08, max: 0.15}
+    unsubscribe_rate: {min: 0.002, max: 0.008}
+    revenue_overclaim_multiplier: {min: 1.5, max: 3.0}
+    contact_customer_match_rate: 0.70
+
+  ga4:
+    target_total_sessions: 18000
+    non_converting_session_pct: 0.85
+    session_duration_seconds:
+      paid_social: {min: 45, max: 240}
+      paid_search: {min: 60, max: 300}
+      organic: {min: 90, max: 420}
+      email: {min: 120, max: 480}
+      direct: {min: 30, max: 180}
+    pages_viewed:
+      paid_social: {min: 2, max: 6}
+      paid_search: {min: 3, max: 8}
+      organic: {min: 4, max: 12}
+      email: {min: 3, max: 9}
+      direct: {min: 1, max: 5}
+    add_to_cart_rate: {min: 0.08, max: 0.18}
+    checkout_start_rate_on_add_to_cart: {min: 0.35, max: 0.55}
+    landing_pages:
+      - "/"
+      - "/collections/hard-goods"
+      - "/collections/consumables"
+      - "/collections/accessories"
+      - "/products/trail-pack-pro-45l"
+      - "/products/summit-shelter-2p"
+
 # ── output ────────────────────────────────────────────────────────────────
 output:
   directory: "data/sample_outputs"
